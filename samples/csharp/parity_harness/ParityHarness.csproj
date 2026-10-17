@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Harness de paridad de PREDICCIONES Python <-> C#.
+    Compila el evaluador XGBoost REAL del bot (HFT_BOT_ML_Common.cs) como
+    consola standalone, sin dependencias de NinjaTrader. Lo invoca
+    tools/validate_prediction_parity.py.
+
+    LangVersion 7.3 a propósito: valida de paso que las fuentes compartidas
+    siguen siendo compatibles con el compilador de NT8.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>ParityHarness</AssemblyName>
+    <RootNamespace>HFT_BOT_ML</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\MiniJson.cs" />
+    <Compile Include="..\..\HFT_BOT_ML_Common.cs" />
+    <!-- Sin dependencias NT8 — incluirlos aquí da compile-check gratis
+         de las fuentes compartidas en cada run de paridad. -->
+    <Compile Include="..\..\OrderFlowProxyExtractor.cs" />
+    <Compile Include="..\..\FullFeatureExtractor.cs" />
+  </ItemGroup>
+
+</Project>
