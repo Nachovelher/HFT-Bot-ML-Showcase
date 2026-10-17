@@ -1,2 +1,2 @@
-samples/* -linguist-documentation
-samples/* linguist-detectable=true
+samples/** linguist-documentation=false
+samples/** linguist-detectable=true
