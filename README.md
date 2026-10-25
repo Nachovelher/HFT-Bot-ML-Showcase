@@ -52,24 +52,26 @@ flowchart LR
 
 ### 2. Paridad entre lenguajes: que el C# haga lo que valida el Python
 * **Harness .NET** ([`samples/csharp/parity_harness/`](samples/csharp/parity_harness/)): compila el **código real del bot sin abrir NinjaTrader** y compara probabilidades y features contra Python.
-* **Resultado medido:** predicciones idénticas en **54/54 modelos**; features idénticas **112/173** tras corregir la zona horaria, con las 61 restantes inventariadas como pendientes.
-* **Divergencias encontradas y corregidas** (entre otras): `Time[0]` tratado como hora de Nueva York cuando NinjaTrader la entrega en la zona del equipo (features de sesión desplazadas ~6 h), ATR de Wilder frente a ATR por media simple, bloqueo de repetición de señales distinto por detector, y un `ForceClose` que **nunca** llegaba a dispararse con barras de 5/10/15 min.
+* **Resultado medido:** predicciones idénticas en **54/54 modelos**; features idénticas **114/173** tras corregir la zona horaria y la desviación muestral (`ddof=1`), con las 59 restantes inventariadas como pendientes.
+* **Divergencias encontradas y corregidas** (entre otras): `Time[0]` tratado como hora de Nueva York cuando NinjaTrader la entrega en la zona del equipo (features de sesión desplazadas ~6 h), `f_bb_width` y `f_vol_zscore` con desviación poblacional (`/n`) frente a muestral (`ddof=1`, `/n-1`) en `pandas.rolling(20).std()`, ATR de Wilder frente a ATR por media simple, bloqueo de repetición de señales distinto por detector, y un `ForceClose` que **nunca** llegaba a dispararse con barras de 5/10/15 min.
 
 ### 3. Evaluador XGBoost en C# puro, sin dependencias
 NinjaTrader 8 corre sobre .NET Framework 4.8 y no conviene arrastrar Newtonsoft ni runtimes de ML dentro del proceso. Por eso el proyecto incluye:
 * [`HFT_BOT_ML_Common.cs`](samples/csharp/HFT_BOT_ML_Common.cs): lector de modelos XGBoost en JSON, con `base_score` convertido a *logit*, rama por defecto de los `NaN` por nodo (`default_left`), comparación en `float32` como XGBoost, validación estricta del número de features y **calibración isotónica** equivalente a `np.interp`.
-* [`MiniJson.cs`](samples/csharp/MiniJson.cs): parser JSON recursivo propio, solo con `System.*`.
+* [`MiniJson.cs`](samples/csharp/MiniJson.cs): parser JSON recursivo propio, solo con `System.*`, con soporte para literales `NaN`/`Infinity` de Python/XGBoost, comparación ordinal $O(1)$ (`MatchLiteral`) y fallo explícito (`FormatException`) ante JSON corrupto.
+* [`csharp_tests/`](samples/csharp/csharp_tests/): suite de 25 tests unitarios en C# (sin NuGet ni NinjaTrader) que verifica `MiniJson`, `XGBoostEvaluator`, `KellyZoneLookup` (*fail-closed*) y `EnsembleDecisionEngine`.
 
 ### 4. Diseño *fail-closed*
 * `AllowRealAccount = false` por defecto: la estrategia solo envía órdenes en cuentas Sim/Playback.
 * `RequireModels`: si el gráfico no tiene carpeta de modelos, la estrategia queda inerte.
+* `KellyZoneLookup` *fail-closed*: si `kelly_thresholds.json` falta o es ilegible, el *strategy gate* bloquea todos los votos (`BlockedThreshold = 1.0`).
 * `deploy.sh` ejecuta antes de copiar nada la **paridad de predicciones** y una **compilación completa** del addon.
 * [`GlobalRiskCoordinator.cs`](samples/csharp/GlobalRiskCoordinator.cs): estado de riesgo compartido entre instancias (posiciones por instancia, *halts* por drawdown y *profit lock*, bloqueo horario y cierre forzado).
 
 ### 5. Rigor estadístico y pre-registro
 * [`stats_significance.py`](samples/python/stats_significance.py): bootstrap por bloques semanales, *Deflated Sharpe Ratio*, PBO e IC95 sobre los trades.
 * **Placebos obligatorios** antes de creer una EV: entrar una barra tarde y sortear el lado.
-* Paquete `research/` con **hipótesis pre-registradas** antes de ver retornos y [tests unitarios](samples/python/tests/test_research.py) de la contabilidad, la causalidad (sin información futura) y el calendario.
+* Paquete `research/` con [**hipótesis pre-registradas** (`docs/HIPOTESIS.md`)](docs/HIPOTESIS.md) antes de ver retornos y [tests unitarios](samples/python/tests/test_research.py) de la contabilidad, la causalidad (sin información futura) y el calendario.
 
 ---
 

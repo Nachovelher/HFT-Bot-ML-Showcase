@@ -115,14 +115,17 @@ namespace HFT_BOT_ML
         /// </summary>
         public static bool IsInTimeBlock()
         {
-            // Globals.Now = reloj de NT8 (hora de Playback en Market Replay).
-            int h = NinjaTrader.Core.Globals.Now.Hour;
-            int s = TimeBlockStartHour;
-            int e = TimeBlockEndHour;
-            if (s == e) return false;       // ventana vacía
-            if (s < e)  return h >= s && h < e;
-            // s > e → cruza medianoche
-            return h >= s || h < e;
+            lock (_lock)
+            {
+                // Globals.Now = reloj de NT8 (hora de Playback en Market Replay).
+                int h = NinjaTrader.Core.Globals.Now.Hour;
+                int s = TimeBlockStartHour;
+                int e = TimeBlockEndHour;
+                if (s == e) return false;       // ventana vacía
+                if (s < e)  return h >= s && h < e;
+                // s > e → cruza medianoche
+                return h >= s || h < e;
+            }
         }
 
         /// <summary>
@@ -131,21 +134,20 @@ namespace HFT_BOT_ML
         /// cerrar a mercado. La idempotencia (cerrar solo una vez por día)
         /// es responsabilidad de la strategy llamadora — el coordinator solo
         /// expone "es la hora?".
-        /// Implementación: compara minuto granularmente. Devuelve true si
-        /// (now.Hour, now.Minute) >= (ForceCloseHour, ForceCloseMinute) Y
-        /// (now.Hour, now.Minute) < (ForceCloseHour, ForceCloseMinute+1) —
-        /// es decir, durante el minuto exacto de cierre.
         /// </summary>
         public static bool IsForceCloseTime()
         {
-            if (!ForceCloseEnabled) return false;
-            // [2026-10-06] Ventana de 15 min desde HH:MM (antes: minuto EXACTO,
-            // que con barras de 5/10/15 min nunca coincidía con el cierre de
-            // barra → el ForceClose no disparaba jamás). La idempotencia por
-            // día la gestiona la estrategia (_forceClosedToday).
-            TimeSpan now = NinjaTrader.Core.Globals.Now.TimeOfDay;
-            TimeSpan start = new TimeSpan(ForceCloseHour, ForceCloseMinute, 0);
-            return now >= start && now < start + FORCE_CLOSE_WINDOW;
+            lock (_lock)
+            {
+                if (!ForceCloseEnabled) return false;
+                // [2026-10-06] Ventana de 15 min desde HH:MM (antes: minuto EXACTO,
+                // que con barras de 5/10/15 min nunca coincidía con el cierre de
+                // barra → el ForceClose no disparaba jamás). La idempotencia por
+                // día la gestiona la estrategia (_forceClosedToday).
+                TimeSpan now = NinjaTrader.Core.Globals.Now.TimeOfDay;
+                TimeSpan start = new TimeSpan(ForceCloseHour, ForceCloseMinute, 0);
+                return now >= start && now < start + FORCE_CLOSE_WINDOW;
+            }
         }
 
         private static readonly TimeSpan FORCE_CLOSE_WINDOW = TimeSpan.FromMinutes(15);

@@ -209,6 +209,9 @@ namespace HFT_BOT_ML
 
                 if (_strategyGateEnabled)
                 {
+                    if (!_kellyZones.IsLoaded)
+                        WarnOnce("kelly-not-loaded", "[ML-GATE] kelly_thresholds.json no cargado ("
+                            + _kellyZones.LoadError + ") - el gate bloquea TODOS los votos (fail-closed).");
                     string side = kv.Value > 0 ? "long" : "short";
                     double minThr = _kellyZones.GetMinThreshold(modelKey, side);
                     if (prob < minThr)
@@ -332,26 +335,57 @@ namespace HFT_BOT_ML
     // ═══════════════════════════════════════════════════════════
     public class KellyZoneLookup
     {
-        private readonly Dictionary<string, double[]> _zones;
+        /// <summary>
+        /// Umbral que bloquea cualquier voto. Las probabilidades calibradas se recortan a
+        /// [0.001, 0.999], asi que 1.0 no se alcanza nunca. Es el centinela "sin edge" de
+        /// step8 (0.999) llevado al limite, y lo que devuelve una tabla ausente o corrupta.
+        /// </summary>
+        public const double BlockedThreshold = 1.0;
+
+        private Dictionary<string, double[]> _zones;
         private static readonly double[] GenericZones = { 0.25, 0.55, 0.70 };
+
+        /// <summary>True si kelly_thresholds.json existe y se pudo interpretar.</summary>
+        public bool IsLoaded { get; private set; }
+
+        /// <summary>Motivo por el que IsLoaded es false (vacio si cargo bien).</summary>
+        public string LoadError { get; private set; }
 
         public KellyZoneLookup(string modelsDir)
         {
             _zones = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
+            LoadError = "";
             string path = Path.Combine(modelsDir, "kelly_thresholds.json");
-            if (!File.Exists(path)) return;
-            try { _zones = ParseFlatLookup(File.ReadAllText(path)); }
-            catch { /* sin tabla: gate permisivo */ }
+            if (!File.Exists(path))
+            {
+                LoadError = "no existe " + path;
+                return;
+            }
+            try
+            {
+                var parsed = ParseFlatLookup(File.ReadAllText(path));
+                if (parsed.Count == 0) throw new FormatException("sin entradas en \"flat_lookup\"");
+                _zones = parsed;
+                IsLoaded = true;
+            }
+            catch (Exception ex)
+            {
+                LoadError = ex.Message;
+            }
         }
 
         /// <summary>
         /// zone1_threshold (= effective_used de step8) de strategy/side. Las
         /// strategy/side sin edge llevan el centinela 0.999 (bloqueadas).
-        /// [2026-10-06] Clave ausente → 0.0, igual que zone1_threshold() de
-        /// backtest_ensemble (antes 0.25: divergencia latente).
+        /// [2026-10-06] Clave ausente EN UNA TABLA VALIDA -> 0.0, igual que
+        /// zone1_threshold() de backtest_ensemble (antes 0.25: divergencia latente).
+        /// Tabla ausente o ilegible -> BlockedThreshold (fail-closed). Antes quedaba
+        /// vacia y todos los umbrales valian 0.0: el gate no bloqueaba nada, justo lo
+        /// contrario de lo que se valido.
         /// </summary>
         public double GetMinThreshold(string strat, string side)
         {
+            if (!IsLoaded) return BlockedThreshold;
             double[] z;
             string key = strat.Replace("@", "_").ToLowerInvariant() + "_" + side;
             return _zones.TryGetValue(key, out z) ? z[0] : 0.0;
@@ -394,14 +428,16 @@ namespace HFT_BOT_ML
                 int arrEnd = arrStart < 0 ? -1 : inner.IndexOf(']', arrStart);
                 if (arrEnd < 0) break;
                 string[] parts = inner.Substring(arrStart + 1, arrEnd - arrStart - 1).Split(',');
-                if (parts.Length >= 3)
-                {
-                    var arr = new double[3];
-                    for (int i = 0; i < 3; i++)
-                        double.TryParse(parts[i].Trim(), System.Globalization.NumberStyles.Float,
-                            System.Globalization.CultureInfo.InvariantCulture, out arr[i]);
-                    result[key] = arr;
-                }
+                // Entrada ilegible (menos de 3 valores, no numerica o NaN): se BLOQUEA.
+                // Antes se leia como 0.0 (o se omitia), es decir "sin umbral": lo contrario
+                // del centinela 0.999 que step8 pone a las patas sin edge.
+                var arr = new double[3];
+                bool ok = parts.Length >= 3;
+                for (int i = 0; ok && i < 3; i++)
+                    ok = double.TryParse(parts[i].Trim(), System.Globalization.NumberStyles.Float,
+                            System.Globalization.CultureInfo.InvariantCulture, out arr[i])
+                         && !double.IsNaN(arr[i]);
+                result[key] = ok ? arr : new[] { BlockedThreshold, BlockedThreshold, BlockedThreshold };
                 pos = arrEnd + 1;
             }
             return result;

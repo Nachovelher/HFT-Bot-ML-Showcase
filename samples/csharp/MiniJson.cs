@@ -397,8 +397,19 @@ namespace HFT_BOT_ML
         private JToken ParseNumber()
         {
             int start = _pos;
+            bool negative = false;
             if (_pos < _json.Length && (_json[_pos] == '-' || _json[_pos] == '+'))
+            {
+                negative = _json[_pos] == '-';
                 _pos++;
+            }
+
+            // XGBoost y json.dumps de Python escriben estos literales sin comillas
+            // (p.ej. en sum_hessian). Antes caian aqui como "numero vacio" = 0.0 sin
+            // avanzar el cursor, y el resto del documento se descartaba en silencio.
+            if (MatchLiteral("NaN")) return new JToken(double.NaN);
+            if (MatchLiteral("Infinity"))
+                return new JToken(negative ? double.NegativeInfinity : double.PositiveInfinity);
 
             while (_pos < _json.Length)
             {
@@ -412,36 +423,40 @@ namespace HFT_BOT_ML
             }
 
             string numStr = _json.Substring(start, _pos - start);
-            if (double.TryParse(numStr, NumberStyles.Any,
-                CultureInfo.InvariantCulture, out double d))
-            {
-                return new JToken(d);
-            }
-            return new JToken(0.0);
+            double d;
+            if (!double.TryParse(numStr, NumberStyles.Float, CultureInfo.InvariantCulture, out d))
+                throw Fail("numero invalido '" + numStr + "'");
+            return new JToken(d);
         }
 
         private JToken ParseBool()
         {
-            if (_json.Substring(_pos).StartsWith("true"))
-            {
-                _pos += 4;
-                return new JToken(true);
-            }
-            if (_json.Substring(_pos).StartsWith("false"))
-            {
-                _pos += 5;
-                return new JToken(false);
-            }
-            _pos++;
-            return new JToken(false);
+            if (MatchLiteral("true")) return new JToken(true);
+            if (MatchLiteral("false")) return new JToken(false);
+            throw Fail("literal booleano invalido");
         }
 
         private JToken ParseNull()
         {
-            if (_pos + 4 <= _json.Length &&
-                _json.Substring(_pos, 4) == "null")
-                _pos += 4;
-            return new JToken(null);
+            if (MatchLiteral("null")) return new JToken(null);
+            throw Fail("literal 'null' invalido");
+        }
+
+        /// <summary>
+        /// Consume el literal si esta en la posicion actual. Comparacion ordinal in situ:
+        /// antes se hacia Substring(_pos).StartsWith(...), que copiaba el resto del JSON en
+        /// cada booleano (O(n^2) en arrays largos) y comparaba segun la cultura.
+        /// </summary>
+        private bool MatchLiteral(string literal)
+        {
+            if (string.CompareOrdinal(_json, _pos, literal, 0, literal.Length) != 0) return false;
+            _pos += literal.Length;
+            return true;
+        }
+
+        private Exception Fail(string what)
+        {
+            return new FormatException("JSON invalido en la posicion " + _pos + ": " + what);
         }
 
         private void SkipWhitespace()

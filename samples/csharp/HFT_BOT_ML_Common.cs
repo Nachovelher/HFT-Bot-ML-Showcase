@@ -72,6 +72,21 @@ namespace HFT_BOT_ML
             return Math.Sqrt(sumSq / use);
         }
 
+        /// <summary>Desviación típica muestral (ddof=1), equivalente a pandas.rolling(n).std().</summary>
+        public double StdSample(int n)
+        {
+            int use = Math.Min(n, _count);
+            if (use < 2) return 0;
+            double mean = Mean(use);
+            double sumSq = 0;
+            for (int i = 0; i < use; i++)
+            {
+                double d = GetAt(i) - mean;
+                sumSq += d * d;
+            }
+            return Math.Sqrt(sumSq / (use - 1));
+        }
+
         public double RollingMax(int n)
         {
             int use = Math.Min(n, _count);
