@@ -1,5 +1,6 @@
 # 🤖 HFT_BOT_ML — Pipeline de ML Python ⇄ C# para NinjaTrader 8 (Showcase)
 
+[![CI](https://github.com/Nachovelher/HFT-Bot-ML-Showcase/actions/workflows/ci.yml/badge.svg)](https://github.com/Nachovelher/HFT-Bot-ML-Showcase/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/platform-NinjaTrader%208-orange.svg)](https://ninjatrader.com/)
 [![Stack](https://img.shields.io/badge/stack-Python%20%2B%20C%23%20%2F%20.NET-3776AB.svg)](#)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
@@ -59,7 +60,7 @@ flowchart LR
 NinjaTrader 8 corre sobre .NET Framework 4.8 y no conviene arrastrar Newtonsoft ni runtimes de ML dentro del proceso. Por eso el proyecto incluye:
 * [`HFT_BOT_ML_Common.cs`](samples/csharp/HFT_BOT_ML_Common.cs): lector de modelos XGBoost en JSON, con `base_score` convertido a *logit*, rama por defecto de los `NaN` por nodo (`default_left`), comparación en `float32` como XGBoost, validación estricta del número de features y **calibración isotónica** equivalente a `np.interp`.
 * [`MiniJson.cs`](samples/csharp/MiniJson.cs): parser JSON recursivo propio, solo con `System.*`, con soporte para literales `NaN`/`Infinity` de Python/XGBoost, comparación ordinal $O(1)$ (`MatchLiteral`) y fallo explícito (`FormatException`) ante JSON corrupto.
-* [`csharp_tests/`](samples/csharp/csharp_tests/): suite de 25 tests unitarios en C# (sin NuGet ni NinjaTrader) que verifica `MiniJson`, `XGBoostEvaluator`, `KellyZoneLookup` (*fail-closed*) y `EnsembleDecisionEngine`.
+* [`csharp_tests/`](samples/csharp/csharp_tests/): suite de 31 tests unitarios en C# (sin NuGet ni NinjaTrader, ejecutada en GitHub Actions) que verifica `MiniJson`, `XGBoostEvaluator`, `KellyZoneLookup` (*fail-closed*), `EnsembleDecisionEngine` y `GlobalRiskCoordinator`.
 
 ### 4. Diseño *fail-closed*
 * `AllowRealAccount = false` por defecto: la estrategia solo envía órdenes en cuentas Sim/Playback.

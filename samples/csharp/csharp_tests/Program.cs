@@ -79,6 +79,7 @@ namespace HFT_BOT_ML.Tests
             XgbEvaluatorTests.Run();
             KellyZoneTests.Run();
             EnsembleEngineTests.Run();
+            GlobalRiskCoordinatorTests.Run();
 
             return T.Summary();
         }

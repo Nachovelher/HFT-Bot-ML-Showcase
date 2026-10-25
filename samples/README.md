@@ -2,9 +2,9 @@
 
 Ficheros reales extraídos del repositorio privado. Se publican para que se pueda evaluar cómo diseño y programo; los detectores de señal, los modelos entrenados y los datos no se incluyen.
 
-> ✅ **Suites de tests autocontenidas y ejecutables directamente en este repositorio:**
-> - **C# (.NET, sin NuGet ni NinjaTrader):** `dotnet run --project samples/csharp/csharp_tests -c Release` (25 tests sobre `MiniJson`, `XGBoostEvaluator`, `KellyZoneLookup` y `EnsembleDecisionEngine`).
-> - **Python (`pytest`):** `pytest samples/python/tests` (16 tests sobre construcción de continuo, sesiones, costes, causalidad y bootstrap).
+> ✅ **Suites de tests autocontenidas y ejecutables directamente en este repositorio (y en GitHub Actions CI):**
+> - **C# (.NET, sin NuGet ni NinjaTrader):** `dotnet run --project samples/csharp/csharp_tests -c Release` (31 tests sobre `MiniJson`, `XGBoostEvaluator`, `KellyZoneLookup`, `EnsembleDecisionEngine` y `GlobalRiskCoordinator`).
+> - **Python (`pytest`):** `pytest` (20 tests sobre construcción de continuo, sesiones, costes, causalidad, bootstrap semanal, DSR y PBO CSCV).
 
 ## C# / .NET (`samples/csharp/`)
 
