@@ -125,6 +125,29 @@ namespace HFT_BOT_ML
             var bars = HarnessCsv.Load(args[1]);
             var tz = HarnessCsv.ParseTz(args);
             var fx = new FullFeatureExtractor(60);
+            if (bars.Count >= 14)
+            {
+                double[] tr = new double[bars.Count];
+                tr[0] = bars[0].H - bars[0].L;
+                for (int i = 1; i < bars.Count; i++)
+                {
+                    double hl = bars[i].H - bars[i].L;
+                    double hc = Math.Abs(bars[i].H - bars[i - 1].C);
+                    double lc = Math.Abs(bars[i].L - bars[i - 1].C);
+                    tr[i] = Math.Max(hl, Math.Max(hc, lc));
+                }
+                double winSum = 0;
+                for (int i = 0; i < 14; i++) winSum += tr[i];
+                double atrSum = winSum / 14.0;
+                int atrCnt = 1;
+                for (int i = 14; i < bars.Count; i++)
+                {
+                    winSum += tr[i] - tr[i - 14];
+                    atrSum += winSum / 14.0;
+                    atrCnt++;
+                }
+                fx.SetAtrGlobalOverride(atrSum / atrCnt);
+            }
             int written = 0;
             using (var w = new StreamWriter(args[2], false, new UTF8Encoding(false)))
             {
@@ -134,7 +157,7 @@ namespace HFT_BOT_ML
                 foreach (var b in bars)
                 {
                     DateTime t = HarnessCsv.ToBotTime(b.Utc, tz);
-                    fx.Update(b.O, b.H, b.L, b.C, b.V, t);
+                    fx.Update(b.O, b.H, b.L, b.C, b.V, t, b.CRaw);
                     if (!fx.IsReady) continue;
                     double[] f = fx.GetFeatures(t);
                     sb.Clear();
